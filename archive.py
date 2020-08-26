@@ -19,7 +19,7 @@ parser.add_argument("repo", help="GitHub repo to archive (e.g. quicwg/base-draft
 parser.add_argument("githubToken", help="GitHub OAuth token")
 parser.add_argument("outFile", default=None, nargs="?", help="destination for output")
 parser.add_argument(
-    "--reference oldfile",
+    "--reference",
     dest="refFile",
     nargs="?",
     help="older file produced by this tool for reference",
