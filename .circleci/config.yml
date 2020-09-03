@@ -7,6 +7,11 @@ jobs:
       - checkout
 
       - run:
+          name: "Install dependencies"
+          command: |
+            pip3 install python-dateutil
+
+      - run:
           name: "Run Tests"
           command: |
             pip3 install --user behave && ln -s $HOME/.local/bin/behave $BINDIR
