@@ -32,27 +32,35 @@ upgrades = {
     )
 }
 
+
 def get_current_magic():
     return current_magic
+
 
 def is_current_magic(magic):
     return magic == current_magic
 
+
 def is_legacy_magic(magic):
     return magic in upgrades
+
 
 def is_dead_end_magic(magic):
     return magic in dead_end_magic
 
+
 def is_valid_magic(magic):
     return is_current_magic(magic) or is_legacy_magic(magic) or is_dead_end_magic(magic)
+
 
 def get_upgrade_instructions(magic):
     return upgrades[magic]
 
+
 ###############
 ## Functions ##
 ###############
+
 
 def newReferenceFile():
     return SimpleNamespace(

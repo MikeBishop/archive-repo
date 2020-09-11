@@ -728,9 +728,7 @@ def upgradeReference(reference):
 
 ## Read in the reference files, if any
 reference = upgradeReference(archive_reference.loadReference(args.refFile, args.repo))
-reference.canCopy = bool(reference.issues) and bool(
-    reference.prs or args.issuesOnly
-)
+reference.canCopy = bool(reference.issues) and bool(reference.prs or args.issuesOnly)
 
 ## Download from GitHub the full issues list (if no reference) or the updated issues list (if reference)
 getIssues(reference)
