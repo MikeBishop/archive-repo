@@ -34,7 +34,7 @@ target_prs = (
     if args.merged
     else (pr for pr in reference.prs.values() if pr["state"] != "MERGED")
 )
-commits = {pr["headRefOid"] + ":pr" + str(pr["number"]) for pr in target_prs}
+commits = {pr["headRefOid"] + ":pulls/" + str(pr["number"]) for pr in target_prs}
 
 if any(commits):
     output = list()
