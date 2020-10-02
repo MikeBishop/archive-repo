@@ -3,7 +3,7 @@
 import argparse
 import os
 import sys
-import archive_reference
+import shared.archive_reference as archive_reference
 
 parser = argparse.ArgumentParser(
     description="Identify the source repos and forks of PRs from an archive"

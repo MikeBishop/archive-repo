@@ -11,7 +11,7 @@ import re
 import dateutil.parser as dp
 import shutil
 import warnings
-import archive_reference
+import shared.archive_reference as archive_reference
 
 parser = argparse.ArgumentParser(description="Archive repo issues and PRs.")
 parser.add_argument("repo", help="GitHub repo to archive (e.g. quicwg/base-drafts)")
