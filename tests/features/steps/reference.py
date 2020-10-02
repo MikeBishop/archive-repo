@@ -4,6 +4,17 @@ import os
 import json
 
 
+@given('a repo for "{repo}"')
+def step_impl(context, repo):
+    repo_dir = context.tempdir.name + "/repo"
+    if not os.path.exists(repo_dir):
+        checkout = subprocess.run(
+            ["git", "clone", "https://github.com/" + repo, repo_dir]
+        )
+        checkout.check_returncode()
+    context.repo_dir = repo_dir
+
+
 @given('the output of the last tagged version for "{repo}"')
 def step_impl(context, repo):
     filename = context.tempdir.name + "/known_good.json"
@@ -37,6 +48,15 @@ def step_impl(context, repo):
             ["python3", "archive.py", repo, os.environ["GH_TOKEN"], filename]
         )
         this_version_run.check_returncode()
+
+
+@when('pr-branches is executed for "{repo}"')
+def step_impl(context, repo):
+    filename = context.tempdir.name + "/current.json"
+    pr_branches_run = subprocess.run(
+        ["python3", "pr-branches.py", filename, context.repo_dir, repo]
+    )
+    pr_branches_run.check_returncode()
 
 
 def read_temp_file(context, name):
@@ -144,3 +164,14 @@ def step_impl(context):
 def step_impl(context, error):
     if error != "None":
         assert error in context.output
+
+
+@then('a branch named "{branch}" pointing to "{hash}" is created')
+def step_impl(context, branch, hash):
+    git_commit = subprocess.run(
+        ["git", "-C", context.repo_dir, "show-ref", "-s", "refs/heads/" + branch],
+        capture_output=True,
+        text=True,
+    )
+    git_commit.check_returncode()
+    assert hash in git_commit.stdout
