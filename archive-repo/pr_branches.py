@@ -3,13 +3,16 @@
 import argparse
 import os
 import sys
-import shared.archive_reference as archive_reference
+from .shared import archive_reference
+
 
 def init(cmdline):
     parser = argparse.ArgumentParser(
-        description="Identify the source repos and forks of PRs from an archive"
+        prog="pr_branches",
+        description="Identify the source repos and forks of PRs from an archive",
     )
     parser.add_argument("input", help="GitHub archive file")
+    parser.add_argument("repo", help="target GitHub repo")
     parser.add_argument("git_dir", help="Local directory with git repo", default=".")
     parser.add_argument(
         "--include-merged",
@@ -25,10 +28,10 @@ def init(cmdline):
         action="store_true",
         help="Show what would be done, without making any changes",
     )
-    parser.add_argument("repo", help="target GitHub repo")
-    args = parser.parse_args()
+    args = parser.parse_args(cmdline)
 
     generate_branches(args.input, args.repo, args.merged, args.git_dir, args.dryRun)
+
 
 def generate_branches(input, repo, merged, git_dir=".", dryRun=False):
     reference = archive_reference.loadReference(input, repo)
@@ -50,6 +53,7 @@ def generate_branches(input, repo, merged, git_dir=".", dryRun=False):
         os.system(command)
     else:
         print("Nothing to do")
+
 
 if __name__ == "__main__":
     init(sys.argv)

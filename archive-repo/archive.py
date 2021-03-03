@@ -13,13 +13,18 @@ import shutil
 import warnings
 from .shared import archive_reference
 
+
 def init(cmdline):
     global quiet
 
-    parser = argparse.ArgumentParser(description="Archive repo issues and PRs.")
+    parser = argparse.ArgumentParser(
+        prog="archive", description="Archive repo issues and PRs."
+    )
     parser.add_argument("repo", help="GitHub repo to archive (e.g. quicwg/base-drafts)")
     parser.add_argument("githubToken", help="GitHub OAuth token")
-    parser.add_argument("outFile", default=None, nargs="?", help="destination for output")
+    parser.add_argument(
+        "outFile", default=None, nargs="?", help="destination for output"
+    )
     parser.add_argument(
         "--reference",
         dest="refFile",
@@ -51,6 +56,7 @@ def init(cmdline):
     quiet = args.quiet
 
     do_archive(args.repo, args.githubToken, args.refFile, args.outFile, args.issuesOnly)
+
 
 #######################
 ## Query definitions ##
@@ -719,6 +725,7 @@ def upgradeReference(reference):
 s = requests.Session()
 quiet = False
 
+
 def do_archive(full_repo, token, refFile, outFile=None, issuesOnly=False):
     API_headers = {
         "user-agent": "martinthomson/i-d-template/archive_repo.py",
@@ -759,7 +766,6 @@ def do_archive(full_repo, token, refFile, outFile=None, issuesOnly=False):
         get_more_issues = labels["repository"]["labels"]["pageInfo"]["hasNextPage"]
         issue_cursor = labels["repository"]["labels"]["pageInfo"]["endCursor"]
 
-
     ## Ready to output
 
     ## Pick up everything in the reference if nothing new was downloaded
@@ -769,7 +775,7 @@ def do_archive(full_repo, token, refFile, outFile=None, issuesOnly=False):
         output = {
             "magic": archive_reference.get_current_magic(),
             "timestamp": now.isoformat(),
-            "repo": repo,
+            "repo": full_repo,
             "labels": labels_ref,
             "issues": [issue for (id, issue) in sorted(reference.issues.items())],
         }
@@ -781,6 +787,7 @@ def do_archive(full_repo, token, refFile, outFile=None, issuesOnly=False):
                 json.dump(output, output_file, indent=2)
         else:
             json.dump(output, sys.stdout, indent=2)
+
 
 if __name__ == "__main__":
     init(sys.argv)
