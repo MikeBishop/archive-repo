@@ -11,49 +11,46 @@ import re
 import dateutil.parser as dp
 import shutil
 import warnings
-import shared.archive_reference as archive_reference
+from .shared import archive_reference
 
-parser = argparse.ArgumentParser(description="Archive repo issues and PRs.")
-parser.add_argument("repo", help="GitHub repo to archive (e.g. quicwg/base-drafts)")
-parser.add_argument("githubToken", help="GitHub OAuth token")
-parser.add_argument("outFile", default=None, nargs="?", help="destination for output")
-parser.add_argument(
-    "--reference",
-    dest="refFile",
-    nargs="?",
-    help="older file produced by this tool for reference",
-)
-parser.add_argument(
-    "--issues-only",
-    dest="issuesOnly",
-    default=False,
-    action="store_true",
-    help="download issues, but not pull requests",
-)
-parser.add_argument(
-    "--quiet",
-    dest="quiet",
-    default=False,
-    action="store_true",
-    help="do not output HTTP requests",
-)
-args = parser.parse_args()
+def init(cmdline):
+    global quiet
 
-if not args.githubToken and "GITHUB_API_TOKEN" in os.environ.keys():
-    args.githubToken = os.environ["GITHUB_API_TOKEN"]
+    parser = argparse.ArgumentParser(description="Archive repo issues and PRs.")
+    parser.add_argument("repo", help="GitHub repo to archive (e.g. quicwg/base-drafts)")
+    parser.add_argument("githubToken", help="GitHub OAuth token")
+    parser.add_argument("outFile", default=None, nargs="?", help="destination for output")
+    parser.add_argument(
+        "--reference",
+        dest="refFile",
+        nargs="?",
+        help="older file produced by this tool for reference",
+    )
+    parser.add_argument(
+        "--issues-only",
+        dest="issuesOnly",
+        default=False,
+        action="store_true",
+        help="download issues, but not pull requests",
+    )
+    parser.add_argument(
+        "--quiet",
+        dest="quiet",
+        default=False,
+        action="store_true",
+        help="do not output HTTP requests",
+    )
+    args = parser.parse_args(cmdline)
 
-if args.repo[-1] == "/":
-    args.repo = args.repo[:-1]
+    if not args.githubToken and "GITHUB_API_TOKEN" in os.environ.keys():
+        args.githubToken = os.environ["GITHUB_API_TOKEN"]
 
-API_headers = {
-    "user-agent": "martinthomson/i-d-template/archive_repo.py",
-    "authorization": "bearer " + args.githubToken,
-}
+    if args.repo[-1] == "/":
+        args.repo = args.repo[:-1]
 
-s = requests.Session()
-s.headers.update(API_headers)
+    quiet = args.quiet
 
-now = datetime.now(timezone.utc)
+    do_archive(args.repo, args.githubToken, args.refFile, args.outFile, args.issuesOnly)
 
 #######################
 ## Query definitions ##
@@ -537,19 +534,14 @@ def eprint(*str, **kwargs):
     print(*str, file=sys.stderr, **kwargs)
 
 
-if args.quiet:
-
-    def log(*str, **kwargs):
+def log(*str, **kwargs):
+    if quiet:
         pass
-
-
-else:
-
-    def log(*str, **kwargs):
+    else:
         eprint(*str, **kwargs)
 
 
-def getIssues(refFile, fields=gql_Issue_Fields, updateOld=False):
+def getIssues(owner, repo, refFile, fields=gql_Issue_Fields, updateOld=False):
     issue_cursor = None
     get_more_issues = True
 
@@ -611,7 +603,7 @@ def getIssues(refFile, fields=gql_Issue_Fields, updateOld=False):
         issue_cursor = issues["pageInfo"]["endCursor"]
 
 
-def getPRs(refFile, fields=gql_PullRequest_Fields, updateOld=False):
+def getPRs(owner, repo, refFile, fields=gql_PullRequest_Fields, updateOld=False):
     issue_cursor = None
     get_more_issues = True
 
@@ -715,7 +707,7 @@ def upgradeReference(reference):
         warnings.warn(
             "Unable to upgrade input file to current version; proceeding without it"
         )
-        return newReferenceFile()
+        return archive_reference.newReferenceFile()
 
     return reference
 
@@ -724,55 +716,71 @@ def upgradeReference(reference):
 ## Body of program ##
 #####################
 
-(owner, repo) = args.repo.split("/", 1)
+s = requests.Session()
+quiet = False
 
-## Read in the reference files, if any
-reference = upgradeReference(archive_reference.loadReference(args.refFile, args.repo))
-reference.canCopy = bool(reference.issues) and bool(reference.prs or args.issuesOnly)
-
-## Download from GitHub the full issues list (if no reference) or the updated issues list (if reference)
-getIssues(reference)
-
-## Similar process with PRs, except they don't have a filter
-if not args.issuesOnly:
-    getPRs(reference)
-
-# Fetch the Labels fresh each time
-labels_ref = list()
-issue_cursor = None
-get_more_issues = True
-while get_more_issues:
-    query = gql_Labels_Query
-    variables = {"owner": owner, "repo": repo}
-    if issue_cursor is not None:
-        query = gql_MoreLabels_Query
-        variables["cursor"] = issue_cursor
-
-    labels = submit_query(query, variables, "labels")
-    labels_ref += labels["repository"]["labels"]["nodes"]
-
-    get_more_issues = labels["repository"]["labels"]["pageInfo"]["hasNextPage"]
-    issue_cursor = labels["repository"]["labels"]["pageInfo"]["endCursor"]
-
-
-## Ready to output
-
-## Pick up everything in the reference if nothing new was downloaded
-if reference.canCopy and args.outFile:
-    shutil.copyfile(args.refFile, args.outFile)
-else:
-    output = {
-        "magic": archive_reference.get_current_magic(),
-        "timestamp": now.isoformat(),
-        "repo": args.repo,
-        "labels": labels_ref,
-        "issues": [issue for (id, issue) in sorted(reference.issues.items())],
+def do_archive(full_repo, token, refFile, outFile=None, issuesOnly=False):
+    API_headers = {
+        "user-agent": "martinthomson/i-d-template/archive_repo.py",
+        "authorization": "bearer " + token,
     }
-    if not args.issuesOnly:
-        output["pulls"] = [pr for (id, pr) in sorted(reference.prs.items())]
 
-    if args.outFile:
-        with open(args.outFile, "w") as output_file:
-            json.dump(output, output_file, indent=2)
+    s.headers.update(API_headers)
+
+    now = datetime.now(timezone.utc)
+
+    (owner, repo) = full_repo.split("/", 1)
+
+    ## Read in the reference files, if any
+    reference = upgradeReference(archive_reference.loadReference(refFile, full_repo))
+    reference.canCopy = bool(reference.issues) and bool(reference.prs or issuesOnly)
+
+    ## Download from GitHub the full issues list (if no reference) or the updated issues list (if reference)
+    getIssues(owner, repo, reference)
+
+    ## Similar process with PRs, except they don't have a filter
+    if not issuesOnly:
+        getPRs(owner, repo, reference)
+
+    # Fetch the Labels fresh each time
+    labels_ref = list()
+    issue_cursor = None
+    get_more_issues = True
+    while get_more_issues:
+        query = gql_Labels_Query
+        variables = {"owner": owner, "repo": repo}
+        if issue_cursor is not None:
+            query = gql_MoreLabels_Query
+            variables["cursor"] = issue_cursor
+
+        labels = submit_query(query, variables, "labels")
+        labels_ref += labels["repository"]["labels"]["nodes"]
+
+        get_more_issues = labels["repository"]["labels"]["pageInfo"]["hasNextPage"]
+        issue_cursor = labels["repository"]["labels"]["pageInfo"]["endCursor"]
+
+
+    ## Ready to output
+
+    ## Pick up everything in the reference if nothing new was downloaded
+    if reference.canCopy and outFile:
+        shutil.copyfile(refFile, outFile)
     else:
-        json.dump(output, sys.stdout, indent=2)
+        output = {
+            "magic": archive_reference.get_current_magic(),
+            "timestamp": now.isoformat(),
+            "repo": repo,
+            "labels": labels_ref,
+            "issues": [issue for (id, issue) in sorted(reference.issues.items())],
+        }
+        if not issuesOnly:
+            output["pulls"] = [pr for (id, pr) in sorted(reference.prs.items())]
+
+        if outFile:
+            with open(outFile, "w") as output_file:
+                json.dump(output, output_file, indent=2)
+        else:
+            json.dump(output, sys.stdout, indent=2)
+
+if __name__ == "__main__":
+    init(sys.argv)
