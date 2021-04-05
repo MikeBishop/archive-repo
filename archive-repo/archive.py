@@ -728,7 +728,7 @@ quiet = False
 
 def do_archive(full_repo, token, refFile, outFile=None, issuesOnly=False):
     API_headers = {
-        "user-agent": "martinthomson/i-d-template/archive_repo.py",
+        "user-agent": "mikebishop/archive-repo/archive.py",
         "authorization": "bearer " + token,
     }
 
