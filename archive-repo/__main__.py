@@ -4,9 +4,10 @@ import sys
 __all__ = ["archive", "pr_branches"]
 
 if __name__ == "__main__":
-    if sys.argv[1] == "archive":
+    command = sys.argv[1] if len(sys.argv) > 1 else ""
+    if command == "archive":
         archive.init(sys.argv[2:])
-    elif sys.argv[1] == "pr_branches":
+    elif command == "pr_branches":
         pr_branches.init(sys.argv[2:])
     else:
         print("Supported commands are " + ", ".join(__all__))

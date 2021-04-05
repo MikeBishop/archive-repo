@@ -35,5 +35,5 @@ $(VENV_NAME)/bin/activate: setup.py
 
 test: venv
 	${PYTHON} -m pip install -U behave
-	. $(VENV_NAME)/bin/activate
+	source $(VENV_NAME)/bin/activate
 	behave tests/features
