@@ -35,5 +35,10 @@ $(VENV_NAME)/bin/activate: setup.py
 
 test: venv
 	${PYTHON} -m pip install -U behave
-	source $(VENV_NAME)/bin/activate
+	. $(VENV_NAME)/bin/activate
 	behave tests/features
+
+upload: build venv
+	${PYTHON} -m pip install -U build twine
+	. $(VENV_NAME)/bin/activate
+	python3 -m twine upload dist/*
