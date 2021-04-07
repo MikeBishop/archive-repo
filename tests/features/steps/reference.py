@@ -2,7 +2,7 @@ from behave import *
 import subprocess
 import os
 import json
-
+import time
 
 @given('a repo for "{repo}"')
 def step_impl(context, repo):
@@ -45,7 +45,7 @@ def step_impl(context, repo):
     filename = context.tempdir.name + "/current.json"
     if not os.path.exists(filename):
         this_version_run = subprocess.run(
-            ["python3", "archive.py", repo, os.environ["GH_TOKEN"], filename]
+            ["python3", "-m", "archive-repo", "archive", repo, os.environ["GH_TOKEN"], filename]
         )
         this_version_run.check_returncode()
 
@@ -54,7 +54,7 @@ def step_impl(context, repo):
 def step_impl(context, repo):
     filename = context.tempdir.name + "/current.json"
     pr_branches_run = subprocess.run(
-        ["python3", "pr-branches.py", filename, context.repo_dir, repo]
+        ["python3", "-m", "archive-repo", "pr_branches", filename, repo, context.repo_dir]
     )
     pr_branches_run.check_returncode()
 
@@ -135,7 +135,9 @@ def step_impl(context, repo):
     run_with_ref = subprocess.run(
         [
             "python3",
-            "archive.py",
+            "-m",
+            "archive-repo",
+            "archive",
             repo,
             os.environ["GH_TOKEN"],
             "--reference",
