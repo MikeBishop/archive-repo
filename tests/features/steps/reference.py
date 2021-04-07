@@ -20,21 +20,19 @@ def step_impl(context, repo):
     filename = context.tempdir.name + "/known_good.json"
 
     if not os.path.exists(filename):
-        get_tag = subprocess.run(
-            ["git", "describe", "--tags", "--abbrev=0"], capture_output=True, text=True
+        build_virtualenv = subprocess.run(
+            ["virtualenv", "-p", "python3", context.tempdir.name + "/venv" ]
         )
-        get_tag.check_returncode()
+        build_virtualenv.check_returncode()
+        python = context.tempdir.name + "/venv/bin/python"
 
-        last_version = subprocess.run(
-            ["git", "show", get_tag.stdout.strip() + ":archive.py"],
-            capture_output=True,
-            text=True,
+        install_good_version = subprocess.run(
+            [python, "-m", "pip", "install", "archive-repo"]
         )
-        last_version.check_returncode()
+        install_good_version.check_returncode()
 
         last_version_run = subprocess.run(
-            ["python3", "-", repo, os.environ["GH_TOKEN"], filename],
-            input=last_version.stdout,
+            [python, "-m", "archive-repo", "archive", repo, os.environ["GH_TOKEN"], filename],
             text=True,
         )
         last_version_run.check_returncode()

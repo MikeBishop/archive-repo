@@ -40,5 +40,4 @@ test: venv
 
 upload: build venv
 	${PYTHON} -m pip install -U build twine
-	. $(VENV_NAME)/bin/activate
-	python3 -m twine upload dist/*
+	${PYTHON} -m twine upload dist/*
