@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="archive-repo",
-    version="0.0.1",
+    version="0.0.2",
     author="Mike Bishop",
     author_email="mbishop@evequefou.be",
     description="Tools for archival of a GitHub repository",
@@ -22,6 +22,8 @@ setuptools.setup(
         "Intended Audience :: Information Technology",
     ],
     packages=setuptools.find_packages(),
+    include_package_data=True,
+    exclude_package_data={"": ["tests"]},
     python_requires=">=3.6",
     install_requires=["python-dateutil", "requests"],
 )
