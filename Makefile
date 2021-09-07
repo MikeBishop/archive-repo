@@ -1,4 +1,4 @@
-.PHONY: clean-pyc clean-build black lint build
+.PHONY: clean-pyc clean-build black lint build venv test upload
 
 VENV_NAME ?= venv
 PYTHON = ${VENV_NAME}/bin/python3
@@ -23,19 +23,19 @@ black:
 lint:
 	black --check archive-repo/
 
-build:
-	python3 -m build
-
-venv: $(VENV_NAME)/bin/activate
-$(VENV_NAME)/bin/activate: setup.py
+venv: ${VENV_NAME}/bin/activate
+${VENV_NAME}/bin/activate: setup.py
 	test -d $(VENV_NAME) || virtualenv -p python3 $(VENV_NAME)
 	${PYTHON} -m pip install -U pip
 	${PYTHON} -m pip install -e .
-	touch $(VENV_NAME)/bin/activate
+	touch $@
+
+build: venv
+	${PYTHON} setup.py build
 
 test: venv
 	${PYTHON} -m pip install -U behave
-	. $(VENV_NAME)/bin/activate
+	. $(VENV_NAME)/bin/activate && \
 	behave tests/features
 
 upload: build venv
