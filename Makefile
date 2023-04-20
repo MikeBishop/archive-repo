@@ -27,6 +27,7 @@ venv: Pipfile Pipfile.lock setup.py
 
 build: venv
 	pipenv run python3 setup.py build
+	pipenv run python3 -m build
 
 test: venv
 	pipenv run behave tests/features

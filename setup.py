@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="archive-repo",
-    version="0.0.2",
+    version="0.0.3",
     author="Mike Bishop",
     author_email="mbishop@evequefou.be",
     description="Tools for archival of a GitHub repository",
