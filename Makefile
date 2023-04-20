@@ -1,7 +1,6 @@
 .PHONY: clean-pyc clean-build black lint build venv test upload
 
 VENV_NAME ?= venv
-PYTHON = ${VENV_NAME}/bin/python3
 
 
 clean-pyc:
@@ -23,21 +22,15 @@ black:
 lint:
 	black --check archive-repo/
 
-venv: ${VENV_NAME}/bin/activate
-${VENV_NAME}/bin/activate: setup.py
-	test -d $(VENV_NAME) || virtualenv -p python3 $(VENV_NAME)
-	${PYTHON} -m pip install -U pip
-	${PYTHON} -m pip install -e .
-	touch $@
+venv: Pipfile Pipfile.lock setup.py
+	pipenv install --dev
 
 build: venv
-	${PYTHON} setup.py build
+	pipenv run python3 setup.py build
+	pipenv run python3 -m build
 
 test: venv
-	${PYTHON} -m pip install -U behave
-	. $(VENV_NAME)/bin/activate && \
-	behave tests/features
+	pipenv run behave tests/features
 
 upload: build venv
-	${PYTHON} -m pip install -U build twine
-	${PYTHON} -m twine upload dist/*
+	pipenv run python3 -m twine upload dist/*
