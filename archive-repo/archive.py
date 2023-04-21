@@ -700,12 +700,16 @@ def getPRs(owner, repo, refFile, fields=gql_PullRequest_Fields, updateOld=False)
 def upgradeReference(reference):
     try:
         while archive_reference.is_legacy_magic(reference.magic):
+            (owner, repo) = reference.repo.split("/", 1)
+
             instructions = archive_reference.get_upgrade_instructions(reference.magic)
+
             if instructions.issues:
-                getIssues(reference, instructions.issues, True)
+                getIssues(owner, repo, reference, instructions.issues, True)
             if instructions.prs:
-                getPRs(reference, instructions.prs, True)
+                getPRs(owner, repo, reference, instructions.prs, True)
             reference.magic = instructions.result
+            reference.canCopy = False
     except:
         pass
 
