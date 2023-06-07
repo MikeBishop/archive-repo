@@ -535,34 +535,10 @@ def submit_query(query, variables, display):
     raise RuntimeError(result.get("errors", "Empty response"))
 
 
-def followPagination(node, key, query, display):
-    if key not in node:
-        return
-
-    get_more = node[key]["pageInfo"]["hasNextPage"]
-    cursor = node[key]["pageInfo"]["endCursor"]
-    while get_more:
-        # Need to paginate
-        query_variables = {"id": node["id"], "cursor": cursor}
-        more = submit_query(query, query_variables, display)
-
-        node[key]["nodes"] += more["node"][key]["nodes"]
-
-        get_more = more["node"][key]["pageInfo"]["hasNextPage"]
-        cursor = more["node"][key]["pageInfo"]["endCursor"]
-    del node[key]["pageInfo"]
-
-
 def collapse_single(thing, key, name):
     "Collapse something in the form of { x: nodes [ { $name: 'stuff' }] }"
     if key in thing:
         thing[key] = [item[name] for item in thing[key]["nodes"]]
-
-
-def collapse(thing, key):
-    "Collapse something in the form of { x: nodes [] }"
-    if key in thing:
-        thing[key] = thing[key]["nodes"]
 
 
 def collapse_map(thing, key, name):
@@ -571,6 +547,27 @@ def collapse_map(thing, key, name):
     Where the {$name:...} can be null instead."""
     if key in thing and thing[key] is not None:
         thing[key] = thing[key][name]
+
+
+def collapse_paginated(thing, key, query, description):
+    """Collapse something in the form of { x: nodes [] } that needs to be
+    paginated"""
+    if key not in thing:
+        return
+
+    get_more = thing[key]["pageInfo"]["hasNextPage"]
+    cursor = thing[key]["pageInfo"]["endCursor"]
+    while get_more:
+        # Need to paginate
+        query_variables = {"id": thing["id"], "cursor": cursor}
+        more = submit_query(query, query_variables, description)
+
+        thing[key]["nodes"] += more["node"][key]["nodes"]
+
+        get_more = more["node"][key]["pageInfo"]["hasNextPage"]
+        cursor = more["node"][key]["pageInfo"]["endCursor"]
+
+    thing[key] = thing[key]["nodes"]
 
 
 def eprint(*str, **kwargs):
@@ -616,7 +613,7 @@ def getIssues(owner, repo, refFile, fields=gql_Issue_Fields, updateOld=False):
                 continue
 
             # Are the comments on this issue complete?
-            followPagination(
+            collapse_paginated(
                 issue,
                 "comments",
                 gql_Issue_Comments_Query,
@@ -627,11 +624,9 @@ def getIssues(owner, repo, refFile, fields=gql_Issue_Fields, updateOld=False):
             collapse_map(issue, "author", "login")
             collapse_single(issue, "labels", "name")
             collapse_single(issue, "assignees", "login")
-            collapse(issue, "comments")
 
             # Handle edits to issues
-            followPagination(issue, "userContentEdits", gql_Edits_Query, "edits")
-            collapse(issue, "userContentEdits")
+            collapse_paginated(issue, "userContentEdits", gql_Edits_Query, "edits")
 
             for edit in issue.get("userContentEdits", []):
                 collapse_map(edit, "editor", "login")
@@ -641,8 +636,7 @@ def getIssues(owner, repo, refFile, fields=gql_Issue_Fields, updateOld=False):
                 collapse_map(comment, "author", "login")
 
                 # Handle edits to comments
-                followPagination(comment, "userContentEdits", gql_Edits_Query, "edits")
-                collapse(comment, "userContentEdits")
+                collapse_paginated(comment, "userContentEdits", gql_Edits_Query, "edits")
                 for edit in comment.get("userContentEdits", []):
                     collapse_map(edit, "editor", "login")
 
@@ -696,23 +690,16 @@ def getPRs(owner, repo, refFile, fields=gql_PullRequest_Fields, updateOld=False)
 
             # Issues only have comments; PRs have both comments and reviews,
             # and reviews themselves have comments.
-            followPagination(
+            collapse_paginated(
                 pr,
                 "comments",
                 gql_PR_Comments_Query,
                 f"additional comments on PR#{number}",
             )
-            followPagination(
+            collapse_paginated(
                 pr, "reviews", gql_PR_Review_Query, f"additional reviews on PR#{number}"
             )
-
-            for review in pr.get("reviews", {}).get("nodes", {}):
-                followPagination(
-                    review,
-                    "comments",
-                    gql_PR_ReviewComments_Query,
-                    f"additional review comments on PR#{number}",
-                )
+            collapse_paginated(pr, "userContentEdits", gql_Edits_Query, "edits")
 
             # Collapse some nodes
             collapse_map(pr, "author", "login")
@@ -721,13 +708,16 @@ def getPRs(owner, repo, refFile, fields=gql_PullRequest_Fields, updateOld=False)
             collapse_map(pr, "baseRepository", "nameWithOwner")
             collapse_map(pr, "headRepository", "nameWithOwner")
             collapse_single(pr, "assignees", "login")
-            collapse(pr, "comments")
+
             for comment in pr.get("comments", []):
                 collapse_map(comment, "author", "login")
-            collapse(pr, "reviews")
+                collapse_paginated(comment, "userContentEdits", gql_Edits_Query, "comment edits")
             for review in pr.get("reviews", []):
                 collapse_map(review, "author", "login")
-                collapse(review, "comments")
+                collapse_paginated(review, "comments", gql_PR_ReviewComments_Query, f"additional review comments on PR#{number}")
+                for comment in review.get("comments", []):
+                    collapse_map(comment, "author", "login")
+                    collapse_paginated(comment, "userContentEdits", gql_Edits_Query, "comment edits")
 
             # Delete the old instance; add this instance
             if not updateOld and number in refFile.prs.keys():
