@@ -87,13 +87,37 @@ fragment author on Comment {
 }
 """
 
-gql_Comment_Fields = """
+gql_Paged = """
+pageInfo {
+    endCursor
+    hasNextPage
+}
+"""
+
+gql_Edit_Fields = ("""
+fragment editFields on UserContentEdit {
+    editor { login }
+    editedAt
+    diff
+""")
+
+gql_Comment_Fields = ("""
 fragment commentFields on Comment {
+    id
     body
     createdAt
     updatedAt
-}
+    userContentEdits(first: 10) {
+        nodes {
+            ...editFields
+        }
+""" +
+        gql_Paged +
 """
+    }
+}
+""" + gql_Edit_Fields
+)
 
 gql_RateLimit = """
 fragment rateLimit on Query {
@@ -105,20 +129,12 @@ fragment rateLimit on Query {
 }
 """
 
-gql_Paged = """
-pageInfo {
-    endCursor
-    hasNextPage
-}
-"""
-
 # Issues
 
 gql_Issue_Fields = (
     """
 fragment issueFields on Issue {
     number
-    id
     title
     url
     state
@@ -216,12 +232,33 @@ query($id: ID!, $cursor: String!){
     + gql_RateLimit
 )
 
+gql_Edits_Query = (
+    """
+query($id: ID!, $cursor: String!){
+    node(id: $id) {
+        ...on Comment {
+            userContentEdits(first:100, after:$cursor) {
+                nodes {
+                    ...editFields
+                }
+        """
+    + gql_Paged
+    + """
+            }
+        }
+    }
+    ...rateLimit
+}
+"""
+    + gql_RateLimit
+    + gql_Edit_Fields
+)
+
 # Pull Requests
 
 gql_Review_Fields = (
     """
 fragment reviewFields on PullRequestReview {
-    id
     commit { abbreviatedOid }
     ...author
     state
@@ -245,7 +282,6 @@ gql_PullRequest_Fields = (
     """
 fragment prFields on PullRequest {
     number
-    id
     title
     url
     state
@@ -591,8 +627,23 @@ def getIssues(owner, repo, refFile, fields=gql_Issue_Fields, updateOld=False):
             collapse_single(issue, "labels", "name")
             collapse_single(issue, "assignees", "login")
             collapse(issue, "comments")
+            collapse(issue, "userContentEdits")
+
+            # Handle edits to issues
+            followPagination(issue, "userContentEdits", gql_Edits_Query, "edits")
+
+            for edit in issue.get("userContentEdits", []):
+                collapse_map(edit, "editor", "login")
+
+            # Handle comments
             for comment in issue.get("comments", []):
                 collapse_map(comment, "author", "login")
+                collapse(comment, "userContentEdits")
+
+                # Handle edits to comments
+                followPagination(comment, "userContentEdits", gql_Edits_Query, "edits")
+                for edit in comment.get("userContentEdits", []):
+                    collapse_map(edit, "editor", "login")
 
             # Delete the old instance; add this instance
             if not updateOld and number in refFile.issues:
