@@ -99,6 +99,7 @@ fragment editFields on UserContentEdit {
     editor { login }
     editedAt
     diff
+}
 """)
 
 gql_Comment_Fields = ("""
@@ -627,10 +628,10 @@ def getIssues(owner, repo, refFile, fields=gql_Issue_Fields, updateOld=False):
             collapse_single(issue, "labels", "name")
             collapse_single(issue, "assignees", "login")
             collapse(issue, "comments")
-            collapse(issue, "userContentEdits")
 
             # Handle edits to issues
             followPagination(issue, "userContentEdits", gql_Edits_Query, "edits")
+            collapse(issue, "userContentEdits")
 
             for edit in issue.get("userContentEdits", []):
                 collapse_map(edit, "editor", "login")
@@ -638,10 +639,10 @@ def getIssues(owner, repo, refFile, fields=gql_Issue_Fields, updateOld=False):
             # Handle comments
             for comment in issue.get("comments", []):
                 collapse_map(comment, "author", "login")
-                collapse(comment, "userContentEdits")
 
                 # Handle edits to comments
                 followPagination(comment, "userContentEdits", gql_Edits_Query, "edits")
+                collapse(comment, "userContentEdits")
                 for edit in comment.get("userContentEdits", []):
                     collapse_map(edit, "editor", "login")
 
