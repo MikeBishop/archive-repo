@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import math
 import requests
 import argparse
 from datetime import datetime, timezone
@@ -464,7 +465,9 @@ def submit_query(query, variables, display):
         except requests.HTTPError as e:
             log(f"Received HTTP {e.response.status_code} error")
             time.sleep(2)
-            continue
+            if math.floor(e.response.status_code / 100) == 5:
+                continue
+            pass
         except:
             time.sleep(3)
             pass
