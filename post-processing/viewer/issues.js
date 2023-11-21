@@ -242,7 +242,7 @@ var issueFilters = {
   or: {
     args: ['filter', '...filter'],
     h: 'union',
-    f: (...filters) =>  x => filters.some(filter => filter(x)),
+    f: (...filters) => x => filters.some(filter => filter(x)),
   },
 
   and: {
@@ -265,17 +265,23 @@ var issueFilters = {
     f: a => issue => !a(issue),
   },
 
-  closed_since: {
+  opened_since: {
     args: ['date'],
-    h: 'issues closed since the date and time',
-    f: since => issue => date(issue.closedAt) >= since,
+    h: 'opened closed since the date and time',
+    f: since => issue => date(issue.createdAt) >= since,
   },
 
   updated_since: {
     args: ['date'],
-    h: 'issues updated since the date and time',
+    h: 'updated since the date and time',
     f: since => issue => date(issue.updatedAt) >= since,
-  }
+  },
+
+  closed_since: {
+    args: ['date'],
+    h: 'closed since the date and time',
+    f: since => issue => date(issue.closedAt) >= since,
+  },
 };
 
 class Parser {
