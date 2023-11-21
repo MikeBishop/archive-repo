@@ -456,13 +456,17 @@ def submit_query(query, variables, display):
     log(output)
     result = dict()
 
-    for _attempt in range(3):
+    for _attempt in range(5):
         try:
             response = s.post(url, body)
             response.raise_for_status()
             result = response.json()
+        except requests.HTTPError as e:
+            log(f"Received HTTP {e.response.status_code} error")
+            time.sleep(2)
+            continue
         except:
-            time.sleep(5)
+            time.sleep(3)
             pass
 
         if (
@@ -495,7 +499,7 @@ def submit_query(query, variables, display):
             del result["data"]["rateLimit"]
         return result["data"]
 
-    raise RuntimeError(result.get("errors", "Empty response"))
+    raise RuntimeError(result.get("errors", "Failed to retrieve data"))
 
 
 def followPagination(node, key, query, display):
