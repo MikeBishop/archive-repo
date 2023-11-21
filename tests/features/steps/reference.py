@@ -4,6 +4,7 @@ import os
 import json
 import time
 
+
 @given('a repo for "{repo}"')
 def step_impl(context, repo):
     repo_dir = context.tempdir.name + "/repo"
@@ -21,7 +22,7 @@ def step_impl(context, repo):
 
     if not os.path.exists(filename):
         build_virtualenv = subprocess.run(
-            ["virtualenv", "-p", "python3", context.tempdir.name + "/venv" ]
+            ["virtualenv", "-p", "python3", context.tempdir.name + "/venv"]
         )
         build_virtualenv.check_returncode()
         python = context.tempdir.name + "/venv/bin/python"
@@ -32,7 +33,15 @@ def step_impl(context, repo):
         install_good_version.check_returncode()
 
         last_version_run = subprocess.run(
-            [python, "-m", "archive-repo", "archive", repo, os.environ["GH_TOKEN"], filename],
+            [
+                python,
+                "-m",
+                "archive-repo",
+                "archive",
+                repo,
+                os.environ["GH_TOKEN"],
+                filename,
+            ],
             text=True,
         )
         last_version_run.check_returncode()
@@ -43,7 +52,15 @@ def step_impl(context, repo):
     filename = context.tempdir.name + "/current.json"
     if not os.path.exists(filename):
         this_version_run = subprocess.run(
-            ["python3", "-m", "archive-repo", "archive", repo, os.environ["GH_TOKEN"], filename]
+            [
+                "python3",
+                "-m",
+                "archive-repo",
+                "archive",
+                repo,
+                os.environ["GH_TOKEN"],
+                filename,
+            ]
         )
         this_version_run.check_returncode()
 
@@ -52,7 +69,15 @@ def step_impl(context, repo):
 def step_impl(context, repo):
     filename = context.tempdir.name + "/current.json"
     pr_branches_run = subprocess.run(
-        ["python3", "-m", "archive-repo", "pr_branches", filename, repo, context.repo_dir]
+        [
+            "python3",
+            "-m",
+            "archive-repo",
+            "pr_branches",
+            filename,
+            repo,
+            context.repo_dir,
+        ]
     )
     pr_branches_run.check_returncode()
 

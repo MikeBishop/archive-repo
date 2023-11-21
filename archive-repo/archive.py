@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import math
 import requests
 import argparse
 from datetime import datetime, timezone
@@ -443,6 +444,7 @@ def stall_until(time):
 def submit_query(query, variables, display):
     global last_request_limit
     global next_reset_time
+    global s
 
     url = "https://api.github.com/graphql"
 
@@ -456,13 +458,26 @@ def submit_query(query, variables, display):
     log(output)
     result = dict()
 
-    for _attempt in range(3):
+    for _attempt in range(5):
         try:
             response = s.post(url, body)
             response.raise_for_status()
             result = response.json()
-        except:
-            time.sleep(5)
+        except requests.HTTPError as e:
+            log(f"Received HTTP {e.response.status_code} error")
+            if math.floor(e.response.status_code / 100) == 5:
+                # The GitHub graphql API can be finicky.
+                # Forcing the creation of a new connection can be necessary.
+                old_session = s
+                s = requests.Session()
+                s.headers = old_session.headers
+                old_session.close()
+                time.sleep(3)
+                continue
+            pass
+        except Exception as e:
+            log(f"Error fetching: {repr(e)}")
+            time.sleep(3)
             pass
 
         if (
@@ -495,7 +510,7 @@ def submit_query(query, variables, display):
             del result["data"]["rateLimit"]
         return result["data"]
 
-    raise RuntimeError(result.get("errors", "Empty response"))
+    raise RuntimeError(result.get("errors", "Failed to retrieve data"))
 
 
 def followPagination(node, key, query, display):
