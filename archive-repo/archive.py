@@ -431,12 +431,12 @@ query($owner: String!, $repo: String!, $cursor: String!) {
 
 
 last_request_limit = 5000
-next_reset_time = datetime.now()
+next_reset_time = datetime.now(timezone.utc)
 
 
-def stall_until(time):
-    time_to_sleep = time - datetime.now().timestamp() + 1
-    print("GitHub API rate-limited; waiting for" + str(time_to_sleep) + "seconds")
+def stall_until(reset_time):
+    time_to_sleep = (reset_time - datetime.now(timezone.utc)).total_seconds() + 1
+    print(f"GitHub API rate-limited; waiting for {time_to_sleep} seconds")
     time.sleep(time_to_sleep)
 
 
@@ -455,23 +455,25 @@ def submit_query(query, variables, display):
     output += str(variables) if variables else "no parameters"
     log(output)
     result = dict()
+    last_error = None
 
     for _attempt in range(3):
         try:
             response = s.post(url, body)
             response.raise_for_status()
             result = response.json()
-        except:
+        except (requests.RequestException, ValueError) as exc:
+            last_error = exc
+            log(f"Request failed ({exc}); retrying in 5 seconds")
             time.sleep(5)
-            pass
+            continue
 
-        if (
-            "errors" in result
-            and "type" in result["errors"]
-            and result["errors"]["type"] == "RATE_LIMITED"
+        if any(
+            isinstance(error, dict) and error.get("type") == "RATE_LIMITED"
+            for error in result.get("errors") or []
         ):
             # We're rate-limited; STALL
-            if next_reset_time > datetime.now():
+            if next_reset_time > datetime.now(timezone.utc):
                 stall_until(next_reset_time)
             else:
                 # We haven't made a successful request, so we don't know how long to sleep.
@@ -494,6 +496,9 @@ def submit_query(query, variables, display):
 
             del result["data"]["rateLimit"]
         return result["data"]
+
+    if last_error is not None:
+        raise RuntimeError(f"Request failed after retries: {last_error}") from last_error
 
     raise RuntimeError(result.get("errors", "Empty response"))
 
@@ -706,8 +711,8 @@ def upgradeReference(reference):
             if instructions.prs:
                 getPRs(reference, instructions.prs, True)
             reference.magic = instructions.result
-    except:
-        pass
+    except Exception as exc:
+        warnings.warn(f"Failed to upgrade reference file: {exc}")
 
     if not archive_reference.is_current_magic(reference.magic):
         warnings.warn(
@@ -740,7 +745,14 @@ def do_archive(full_repo, token, refFile, outFile=None, issuesOnly=False):
 
     ## Read in the reference files, if any
     reference = upgradeReference(archive_reference.loadReference(refFile, full_repo))
-    reference.canCopy = bool(reference.issues) and bool(reference.prs or issuesOnly)
+    # Only short-circuit to a raw file copy if doing so wouldn't change whether
+    # the output includes "pulls" data (issuesOnly must agree with the
+    # reference's own issues_only state, or a copy would leak/drop PR data).
+    reference.canCopy = (
+        bool(reference.issues)
+        and bool(reference.prs or issuesOnly)
+        and (not issuesOnly or reference.issues_only)
+    )
 
     ## Download from GitHub the full issues list (if no reference) or the updated issues list (if reference)
     getIssues(owner, repo, reference)
